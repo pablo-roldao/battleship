@@ -30,8 +30,9 @@ class MenuScreen < BaseScreen
     draw_menu_btn("CAMPAIGN MODE", 0)
     draw_menu_btn("DYNAMIC MODE", 1)
     draw_menu_btn("LEADERBOARD", 2)
-    draw_menu_btn("OPTIONS", 3)
-    draw_menu_btn("EXIT", 4)
+    draw_menu_btn("MEDALS", 3)
+    draw_menu_btn("OPTIONS", 4)
+    draw_menu_btn("EXIT", 5)
 
     draw_centered_text("v1.0 - PLP", 580, Gosu::Color.new(0xff_475569), @info_font)
   end
@@ -64,8 +65,9 @@ class MenuScreen < BaseScreen
         when 0 then @window.show_screen(:campaign)
         when 1 then @window.show_screen(:dynamic)
         when 2 then @window.show_screen(:ranking)
-        when 3 then @window.show_screen(:options)
-        when 4 then @window.close
+        when 3 then @window.show_screen(:achievements)
+        when 4 then @window.show_screen(:options)
+        when 5 then @window.close
         end
       end
     end

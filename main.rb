@@ -6,21 +6,26 @@ require_relative 'lib/screens/game_screen'
 require_relative 'lib/screens/ranking_screen'
 require_relative 'lib/screens/options_screen'
 require_relative 'lib/screens/campaign_screen'
+require_relative 'lib/screens/achievements_screen'
+require_relative 'lib/engine/achievement_manager'
+require_relative 'lib/ui/achievement_notification'
 
 class GameWindow < Gosu::Window
   def initialize
     super 800, 600
     self.caption = "Battleship"
+    @achievement_manager = AchievementManager.new
     show_screen(:menu)
   end
 
   def show_screen(screen_symbol)
     case screen_symbol
-    when :menu then @current_screen = MenuScreen.new(self)
-    when :campaign then @current_screen = CampaignScreen.new(self)
-    when :dynamic then @current_screen = GameScreen.new(self)
-    when :ranking then @current_screen = RankingScreen.new(self)
-    when :options then @current_screen = OptionsScreen.new(self)
+    when :menu         then @current_screen = MenuScreen.new(self)
+    when :campaign     then @current_screen = CampaignScreen.new(self)
+    when :dynamic      then @current_screen = GameScreen.new(self)
+    when :ranking      then @current_screen = RankingScreen.new(self)
+    when :options      then @current_screen = OptionsScreen.new(self)
+    when :achievements then @current_screen = AchievementsScreen.new(self, @achievement_manager)
     else
       @current_screen = MenuScreen.new(self)
     end
