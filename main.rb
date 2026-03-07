@@ -16,7 +16,19 @@ require_relative 'lib/models/board'
 require_relative 'lib/models/ships/ship'
 
 class GameWindow < Gosu::Window
-  attr_reader :db, :current_user
+  DESIGN_W = 800.0
+  DESIGN_H = 600.0
+
+  attr_reader :db, :current_user, :achievement_manager, :bg_music, :waves_music, :bg_image,
+              :font_title, :font_btn, :font_info
+  attr_accessor :sfx_enabled, :music_enabled
+
+  def dw = DESIGN_W.to_i
+  def dh = DESIGN_H.to_i
+  def scale_x = width.to_f  / DESIGN_W
+  def scale_y = height.to_f / DESIGN_H
+  def mx = mouse_x / scale_x
+  def my = mouse_y / scale_y
 
   def initialize
     super 800, 600
@@ -25,12 +37,43 @@ class GameWindow < Gosu::Window
     @current_user    = nil
     @achievement_manager = AchievementManager.new
     @campaign_stage  = 1
+    @sfx_enabled     = true
+    @music_enabled   = true
+    @bg_music = Gosu::Song.new(File.join('assets', 'musics', 'musica_de_marinheiro.wav'))
+    @bg_music.volume = 0.05
+    @bg_music.play(true)
+    @waves_music = Gosu::Song.new(File.join('assets', 'sfx', 'waves.wav'))
+    @waves_music.volume = 0.15
+    begin
+      @bg_image = Gosu::Image.new(File.join('assets', 'images', 'background.jpg'))
+    rescue
+      @bg_image = nil
+    end
+    @font_title = Gosu::Font.new(50)
+    @font_btn   = Gosu::Font.new(22)
+    @font_info  = Gosu::Font.new(18)
     show_screen(:login)
   end
 
+  def toggle_music
+    @music_enabled = !@music_enabled
+    if @current_screen.is_a?(GameScreen) || @current_screen.is_a?(PlacementScreen)
+      @music_enabled ? @waves_music.play(true) : @waves_music.stop
+    else
+      @music_enabled ? @bg_music.play(true) : @bg_music.stop
+    end
+  end
+
+  def toggle_sfx
+    @sfx_enabled = !@sfx_enabled
+  end
+
   def on_login(user)
-    @current_user   = user
-    @pending_screen = :menu
+    @current_user        = user
+    @achievement_manager = AchievementManager.new(user_id: user['id'])
+    @campaign_stage      = @db.get_campaign_stage(user['id'])
+    self.fullscreen      = true unless fullscreen?
+    @pending_screen      = :menu
   end
 
   # Abre a PlacementScreen antes de uma missão de campanha
@@ -69,10 +112,19 @@ class GameWindow < Gosu::Window
 
   def on_campaign_mission_won(stage)
     @campaign_stage = [stage + 1, 4].min
+    @db.set_campaign_stage(@current_user['id'], @campaign_stage) if @current_user
     @pending_screen = :campaign
   end
 
   def show_screen(screen_symbol)
+    # Só altera fullscreen ao voltar para o login (raramente usado)
+    self.fullscreen = false if screen_symbol == :login && fullscreen?
+    # Retomando telas de menu: reinicia a música se habilitada
+    menu_screens = %i[login menu campaign ranking options achievements]
+    if menu_screens.include?(screen_symbol)
+      @waves_music.stop if @waves_music.playing?
+      @bg_music.play(true) if @music_enabled && !@bg_music.playing?
+    end
     case screen_symbol
     when :login        then @current_screen = LoginScreen.new(self)
     when :menu         then @current_screen = MenuScreen.new(self)
@@ -101,6 +153,8 @@ class GameWindow < Gosu::Window
     if @pending_game
       cfg = @pending_game
       @pending_game = nil
+      self.fullscreen = true
+      @waves_music.play(true) if @music_enabled && !@waves_music.playing?
       @current_screen = GameScreen.new(
         self,
         current_user:     cfg[:current_user],
@@ -116,6 +170,8 @@ class GameWindow < Gosu::Window
     if @pending_placement
       cfg = @pending_placement
       @pending_placement = nil
+      @bg_music.stop
+      @waves_music.play(true) if @music_enabled
       @current_screen = PlacementScreen.new(
         self,
         campaign_stage: cfg[:campaign_stage],
@@ -134,11 +190,17 @@ class GameWindow < Gosu::Window
   end
 
   def draw
-    draw_rect(0, 0, width, height, Theme::COLOR_BG)
-    @current_screen.draw
-
-    if @current_user && !@current_screen.is_a?(LoginScreen)
-      draw_user_badge
+    draw_rect(0, 0, width, height, Theme::COLOR_BG, -10)
+    if @current_screen.is_a?(GameScreen)
+      @current_screen.draw
+      draw_user_badge(width) if @current_user && !@current_screen.is_a?(LoginScreen)
+    else
+      sx = width  > 0 ? width.to_f  / DESIGN_W : 1.0
+      sy = height > 0 ? height.to_f / DESIGN_H : 1.0
+      Gosu.scale(sx, sy) do
+        @current_screen.draw
+        draw_user_badge(dw) if @current_user && !@current_screen.is_a?(LoginScreen)
+      end
     end
   end
 
@@ -152,6 +214,11 @@ class GameWindow < Gosu::Window
 
   def button_down(id)
     if id == Gosu::KB_ESCAPE
+      # Delega ao GameScreen para tratar pausa antes de ir ao menu
+      if @current_screen.respond_to?(:handle_escape)
+        @current_screen.handle_escape
+        return
+      end
       if @current_screen.is_a?(LoginScreen) || @current_screen.is_a?(MenuScreen)
         close
       else
@@ -175,11 +242,11 @@ class GameWindow < Gosu::Window
 
   private
 
-  def draw_user_badge
+  def draw_user_badge(ref_w = dw)
     font = Gosu::Font.new(16)
-    text = "● #{@current_user['username']}"
+    text = "\u25cf #{@current_user['username']}"
     tw   = font.text_width(text)
-    font.draw_text(text, width - tw - 10, 8, 3, 1.0, 1.0, Theme::COLOR_ACCENT)
+    font.draw_text(text, ref_w - tw - 10, 8, 3, 1.0, 1.0, Theme::COLOR_ACCENT)
   end
 end
 
