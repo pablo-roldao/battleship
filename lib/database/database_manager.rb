@@ -105,6 +105,31 @@ class DatabaseManager
     )
   end
 
+  # Campanha
+
+  # Retorna o estágio de campanha salvo de um usuário (1-3).
+  # @param user_id [Integer]
+  # @return [Integer]
+  def get_campaign_stage(user_id)
+    row = @db.get_first_row(
+      "SELECT stage FROM campaign_progress WHERE user_id = ?",
+      [user_id]
+    )
+    row ? row['stage'].to_i : 1
+  end
+
+  # Salva o estágio de campanha de um usuário.
+  # @param user_id [Integer]
+  # @param stage   [Integer]
+  def set_campaign_stage(user_id, stage)
+    @db.execute(
+      "INSERT INTO campaign_progress (user_id, stage)
+       VALUES (?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET stage = excluded.stage",
+      [user_id, stage]
+    )
+  end
+
   private
 
   # Hash simples via XOR + Base64.
@@ -129,6 +154,12 @@ class DatabaseManager
         score            INTEGER NOT NULL DEFAULT 0,
         duration_seconds INTEGER NOT NULL DEFAULT 0,
         played_at        TEXT    NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS campaign_progress (
+        user_id INTEGER PRIMARY KEY,
+        stage   INTEGER NOT NULL DEFAULT 1,
         FOREIGN KEY (user_id) REFERENCES users(id)
       );
     SQL
