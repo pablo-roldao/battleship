@@ -1,18 +1,121 @@
 require_relative 'base_screen'
 
+# Tela do mapa de campanha.
+#
+# Apresenta as três missões em sequência:
+#   Missão 1 → EasyBot
+#   Missão 2 → MediumBot   (desbloqueada após vencer a Missão 1)
+#   Missão 3 → HardBot      (desbloqueada após vencer a Missão 2)
+#
+# O progresso é mantido em @campaign_stage (1..3) que o GameWindow repassa.
+# Quando o jogador vence uma missão, o GameWindow incrementa campaign_stage
+# e volta para cá.
+#
+# @author Jurandir Neto
 class CampaignScreen < BaseScreen
+  # Dificuldades mapeadas por estágio
+  STAGE_LABELS = {
+    1 => "MISSÃO 1 – Dia de Treinamento  [Fácil]",
+    2 => "MISSÃO 2 – O Atlântico         [Médio]",
+    3 => "MISSÃO 3 – Chefe Final         [Difícil]"
+  }.freeze
+
+  STAGE_DIFFICULTIES = {
+    1 => :easy,
+    2 => :medium,
+    3 => :hard
+  }.freeze
+
+  # @param window     [GameWindow]
+  # @param stage      [Integer]  estágio atual desbloqueado (1‑3)
+  def initialize(window, stage: 1)
+    super(window)
+    @stage        = stage.clamp(1, 3)
+    @hover_stage  = nil
+  end
+
+  # Renderização
+
   def draw
-    draw_header("CAMPAIGN MAP")
+    draw_header("MAPA DE CAMPANHA")
+    draw_centered_text("Selecione sua missão:", 140, Theme::COLOR_TEXT, @btn_font)
 
-    draw_centered_text("Select a mission:", 180, Theme::COLOR_TEXT, @btn_font)
-
-    btn_w = 300
+    btn_w  = 420
+    btn_h  = 50
     start_x = (@window.width - btn_w) / 2
 
-    draw_btn("MISSION 1: Training day", start_x, 230, btn_w, 50)
-    draw_btn("MISSION 2: The Atlantic", start_x, 300, btn_w, 50)
-    draw_btn("MISSION 3: Final boss",   start_x, 370, btn_w, 50)
+    STAGE_LABELS.each_with_index do |(stage_num, label), idx|
+      y       = 200 + idx * 80
+      unlocked = stage_num <= @stage
+      draw_mission_btn(label, start_x, y, btn_w, btn_h, unlocked)
+    end
 
+    draw_stage_info
     draw_footer_hint
+  end
+
+  # Input
+
+  def button_down(id)
+    return unless id == Gosu::MS_LEFT
+
+    mx = @window.mouse_x
+    my = @window.mouse_y
+    btn_w  = 420
+    btn_h  = 50
+    start_x = (@window.width - btn_w) / 2
+
+    STAGE_LABELS.each_with_index do |(stage_num, _label), idx|
+      y        = 200 + idx * 80
+      unlocked = stage_num <= @stage
+
+      if unlocked && mx.between?(start_x, start_x + btn_w) && my.between?(y, y + btn_h)
+        launch_mission(stage_num)
+        return
+      end
+    end
+  end
+
+  private
+
+  # Desenha um botão de missão, bloqueado ou não.
+  def draw_mission_btn(label, x, y, w, h, unlocked)
+    mx = @window.mouse_x
+    my = @window.mouse_y
+    is_hover = unlocked && mx.between?(x, x + w) && my.between?(y, y + h)
+
+    bg_color     = unlocked ? (is_hover ? Theme::COLOR_HOVER : Theme::COLOR_BTN) : Gosu::Color.new(0xff_2d3748)
+    border_color = is_hover ? Theme::COLOR_ACCENT : Theme::COLOR_BG
+    text_color   = unlocked ? Theme::COLOR_TEXT : Gosu::Color.new(0xff_64748b)
+
+    @window.draw_rect(x, y, w, h, bg_color)
+    t = 2
+    @window.draw_rect(x,         y,         w, t, border_color)
+    @window.draw_rect(x,         y + h - t, w, t, border_color)
+    @window.draw_rect(x,         y,         t, h, border_color)
+    @window.draw_rect(x + w - t, y,         t, h, border_color)
+
+    display = unlocked ? label : "#{label}  [BLOQUEADA]"
+    tx = x + (w - @btn_font.text_width(display)) / 2
+    ty = y + (h - @btn_font.height) / 2
+    @btn_font.draw_text(display, tx, ty, 2, 1.0, 1.0, text_color)
+  end
+
+  # Exibe o estágio atual em texto informativo
+  def draw_stage_info
+    completed = @stage - 1
+    total     = 3
+    info = "Progresso: #{completed}/#{total} missões concluídas"
+    draw_centered_text(info, 460, Theme::COLOR_ACCENT, @info_font)
+
+    if @stage > 3
+      draw_centered_text("Campanha completa! Parabéns!", 490, Theme::COLOR_ACCENT, @btn_font)
+    end
+  end
+
+  # Navega para o GameScreen com a dificuldade correta
+  def launch_mission(stage_num)
+    difficulty = STAGE_DIFFICULTIES[stage_num]
+    @window.start_campaign_mission(stage_num, difficulty)
   end
 end
