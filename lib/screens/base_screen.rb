@@ -53,6 +53,6 @@ class BaseScreen
   end
 
   def draw_footer_hint
-    draw_centered_text("(Press ESC to return to Menu)", 560, Gosu::Color.new(0xff_64748b), @info_font)
+    draw_centered_text("(Pressione ESC para voltar ao Menu)", 560, Gosu::Color.new(0xff_64748b), @info_font)
   end
 end
