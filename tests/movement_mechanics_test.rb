@@ -6,7 +6,7 @@ require_relative '../lib/models/ships/warship'
 require_relative '../lib/engine/movement_mechanics'
 
 # Testa a mecânica de movimentação de navios antes do disparo.
-# @author Implementação - mecânica de movimento
+# @author José Gustavo
 class MovementMechanicsTest < Minitest::Test
 
   def setup

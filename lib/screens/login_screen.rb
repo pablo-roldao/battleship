@@ -27,15 +27,25 @@ class LoginScreen < BaseScreen
     @message        = ''
     @message_color  = COLOR_ERROR
     @label_font     = Gosu::Font.new(16)
+    @title_font     = Gosu::Font.new(50, bold: true)
+    @welcome_font   = Gosu::Font.new(18, bold: true)
   end
 
   #  Draw
 
   def draw
+    draw_background
     title = @mode == MODE_LOGIN ? 'LOGIN' : 'CRIAR CONTA'
     draw_header(title)
 
-    center_x = @window.width / 2
+    center_x = @window.dw / 2
+
+    welcome = "Bem-vindo, marinheiro! Pronto para uma nova aventura?"
+    @welcome_font.draw_text(
+      welcome,
+      center_x - @welcome_font.text_width(welcome) / 2,
+      120, 2, 1.0, 1.0, COLOR_LABEL
+    )
 
     # Campo usuário
     draw_label("USUÁRIO", center_x - INPUT_W / 2, 160)
@@ -128,8 +138,8 @@ class LoginScreen < BaseScreen
   # Lógica de clique
 
   def handle_click
-    cx = @window.width / 2
-    mx, my = @window.mouse_x, @window.mouse_y
+    cx = @window.dw / 2
+    mx, my = @window.mx, @window.my
 
     # Campos de input
     ux = cx - INPUT_W / 2

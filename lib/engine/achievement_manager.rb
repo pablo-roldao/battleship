@@ -1,4 +1,5 @@
 require 'json'
+require_relative '../models/ships/ship'
 
 # Gerencia o sistema de conquistas (medalhas) do jogo.
 #
@@ -7,6 +8,7 @@ require 'json'
 # - :capitao_mar_guerra → Acerte 8 tiros consecutivos.
 # - :capitao           → Acerte navios de 7 tipos diferentes seguidos (sem errar).
 # - :marinheiro        → Vença em menos de 3 minutos.
+# - :alma_negra      → Derrote o Davy Jones na missão impossível.
 #
 # @author Jurandir Neto
 class AchievementManager
@@ -33,6 +35,11 @@ class AchievementManager
       name: 'Marinheiro',
       description: 'Vença em menos de 3 minutos.',
       icon: '⏱'
+    },
+    jack_sparrow: {
+      name: 'Alma Negra',
+      description: 'Você mostrou o motivo de ser o mais temido dos mares. Derrotou o temido Davy Jones na missão impossível!',
+      icon: '☠'
     }
   }.freeze
 
@@ -41,7 +48,9 @@ class AchievementManager
 
   attr_reader :unlocked_achievements, :consecutive_hits, :ship_types_hit_streak
 
-  def initialize
+  # @param user_id [Integer, String, nil] ID do usuário. Nil usa a chave 'guest'.
+  def initialize(user_id: nil)
+    @user_id                  = user_id ? user_id.to_s : 'guest'
     @unlocked_achievements    = []
     @consecutive_hits         = 0
     @ship_types_hit_streak    = []   # tipos de navios acertados em sequência
@@ -55,6 +64,13 @@ class AchievementManager
     @ship_types_hit_streak = []
     @game_start_time       = Time.now
     @newly_unlocked        = []
+    @impossible_victory    = false
+  end
+
+  # Sinaliza que esta partida foi uma vitória contra o Davy Jones (missão impossível).
+  # Deve ser chamado antes de +register_victory+.
+  def flag_impossible_victory
+    @impossible_victory = true
   end
 
   # Deve ser chamado após cada disparo do jogador.
@@ -87,6 +103,7 @@ class AchievementManager
   def register_victory(player_fleet)
     check_almirante(player_fleet)
     check_marinheiro
+    check_jack_sparrow if @impossible_victory
     save_achievements
     @newly_unlocked
   end
@@ -116,7 +133,7 @@ class AchievementManager
 
   # Almirante: vencer sem perder nenhum navio.
   def check_almirante(player_fleet)
-    all_intact = player_fleet.none? { |ship| ship.status == :Destroyed }
+    all_intact = player_fleet.none? { |ship| ship.status == Ship::DESTROYED }
     unlock(:almirante) if all_intact
   end
 
@@ -136,6 +153,11 @@ class AchievementManager
     unlock(:marinheiro) if elapsed_time <= MARINHEIRO_TIME_LIMIT
   end
 
+  # Jack Sparrow: derrotar o Davy Jones na missão impossível.
+  def check_jack_sparrow
+    unlock(:jack_sparrow)
+  end
+
   # Desbloqueia uma conquista (se ainda não desbloqueada).
   def unlock(key)
     return if @unlocked_achievements.include?(key)
@@ -147,19 +169,24 @@ class AchievementManager
   # --- Persistência ---
 
   def save_achievements
-    data = { unlocked: @unlocked_achievements.map(&:to_s) }
+    raw  = File.exist?(SAVE_FILE) ? File.read(SAVE_FILE) : ''
+    data = raw.strip.empty? ? {} : JSON.parse(raw)
+    data[@user_id] = @unlocked_achievements.map(&:to_s)
     File.write(SAVE_FILE, JSON.generate(data))
   rescue => e
-    warn "AchievementManager: falha ao salvar conquistas – #{e.message}"
+    warn "AchievementManager: falha ao salvar conquistas \u2013 #{e.message}"
   end
 
   def load_achievements
     @newly_unlocked = []
     return unless File.exist?(SAVE_FILE)
-    data = JSON.parse(File.read(SAVE_FILE))
-    @unlocked_achievements = data['unlocked'].map(&:to_sym)
+    raw = File.read(SAVE_FILE)
+    return if raw.strip.empty?
+    data = JSON.parse(raw)
+    user_data = data[@user_id] || []
+    @unlocked_achievements = user_data.map(&:to_sym)
   rescue => e
-    warn "AchievementManager: falha ao carregar conquistas – #{e.message}"
+    warn "AchievementManager: falha ao carregar conquistas \u2013 #{e.message}"
     @unlocked_achievements = []
   end
 end

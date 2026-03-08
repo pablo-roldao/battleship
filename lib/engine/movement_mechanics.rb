@@ -8,7 +8,7 @@ require_relative '../models/ships/ship'
 # - Mover um navio CONSOME o turno inteiro — quem move NÃO atira.
 # - Cada lado pode mover NO MÁXIMO um navio por turno.
 #
-# @author Implementação - mecânica de movimento
+# @author José Gustavo
 class MovementMechanics
   # Possíveis resultados de uma tentativa de movimento
   RESULTS = [:moved, :invalid_direction, :out_of_bounds, :collision,
