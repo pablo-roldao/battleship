@@ -120,16 +120,33 @@ class BaseScreen
     cell_inner = cell_size - cell_gap
 
     if orientation == :vertical
-      sx = cell_inner.to_f / img.width
-      sy = (size * cell_size - cell_gap).to_f / img.height
-      img.draw(px, py, z, sx, sy, color)
+      target_w = cell_inner.to_f
+      target_h = (size * cell_size - cell_gap).to_f
+      sx = target_w / img.width
+      sy = target_h / img.height
+      # Preserva aspect ratio quando a área é quadrada (ex: submarino size=1)
+      # para evitar distorção/achatamento da sprite.
+      if (sx - sy).abs > 0.01
+        scale = [sx, sy].min
+        ox = (target_w - scale * img.width)  / 2.0
+        oy = (target_h - scale * img.height) / 2.0
+        img.draw(px + ox, py + oy, z, scale, scale, color)
+      else
+        img.draw(px, py, z, sx, sy, color)
+      end
     else
       # Rotação 90° CW: escala mapeando img.height → largura, img.width → altura
       w  = size * cell_size - cell_gap
       h  = cell_inner
       sx = h.to_f / img.width
       sy = w.to_f / img.height
-      img.draw_rot(px + w / 2.0, py + h / 2.0, z, 90, 0.5, 0.5, sx, sy, color)
+      # Preserva aspect ratio quando a área é quadrada (ex: submarino size=1)
+      if (sx - sy).abs > 0.01
+        scale = [sx, sy].min
+        img.draw_rot(px + w / 2.0, py + h / 2.0, z, 90, 0.5, 0.5, scale, scale, color)
+      else
+        img.draw_rot(px + w / 2.0, py + h / 2.0, z, 90, 0.5, 0.5, sx, sy, color)
+      end
     end
   end
 end
