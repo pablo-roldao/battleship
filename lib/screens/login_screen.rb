@@ -39,6 +39,7 @@ class LoginScreen < BaseScreen
     draw_header(title)
 
     center_x = @window.dw / 2
+    base_y = 120
 
     welcome = "Bem-vindo, marinheiro! Pronto para uma nova aventura?"
     @welcome_font.draw_text(
@@ -48,16 +49,36 @@ class LoginScreen < BaseScreen
     )
 
     # Campo usuário
-    draw_label("USUÁRIO", center_x - INPUT_W / 2, 160)
-    draw_input_box(@username, center_x - INPUT_W / 2, 180, @active_field == :username)
+    user_y = base_y + 40
+    draw_label("USUÁRIO", center_x - INPUT_W / 2, user_y)
+    draw_input_box(@username, center_x - INPUT_W / 2, user_y + 20, @active_field == :username)
 
     # Campo senha
-    draw_label("SENHA", center_x - INPUT_W / 2, 244)
-    draw_input_box('*' * @password.length, center_x - INPUT_W / 2, 264, @active_field == :password)
+    pass_y = user_y + 84
+    draw_label("SENHA", center_x - INPUT_W / 2, pass_y)
+    draw_input_box('*' * @password.length, center_x - INPUT_W / 2, pass_y + 20, @active_field == :password)
 
     # Botão principal
     btn_label = @mode == MODE_LOGIN ? 'ENTRAR' : 'CADASTRAR'
-    draw_btn(btn_label, center_x - 140, 335, 280, 50)
+
+    # Botão principal
+    btn_label = @mode == MODE_LOGIN ? 'ENTRAR' : 'CADASTRAR'
+
+    btn_x = center_x - 140
+    btn_y = 335
+    btn_w = 280
+    btn_h = 50
+
+    draw_btn(btn_label, btn_x, btn_y, btn_w, btn_h)
+
+    # Desenha um contorno de foco se o botão for o campo ativo
+    if @active_field == :button
+      t = 3 # Espessura da borda
+      @window.draw_rect(btn_x - t, btn_y - t, btn_w + t * 2, t, COLOR_INPUT_ACTIVE)
+      @window.draw_rect(btn_x - t, btn_y + btn_h, btn_w + t * 2, t, COLOR_INPUT_ACTIVE)
+      @window.draw_rect(btn_x - t, btn_y - t, t, btn_h + t * 2, COLOR_INPUT_ACTIVE)
+      @window.draw_rect(btn_x + btn_w, btn_y - t, t, btn_h + t * 2, COLOR_INPUT_ACTIVE)
+    end
 
     # Link de alternância
     toggle_text = @mode == MODE_LOGIN ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Entrar'
@@ -84,14 +105,19 @@ class LoginScreen < BaseScreen
     when Gosu::MS_LEFT
       handle_click
     when Gosu::KB_TAB
-      @active_field = (@active_field == :username) ? :password : :username
+      @active_field = case @active_field
+                      when :username then :password
+                      when :password then :button
+                      when :button   then :username
+                      else :username
+                      end
     when Gosu::KB_RETURN, Gosu::KB_ENTER
       submit
     when Gosu::KB_BACKSPACE
       if @active_field == :username
-        @username = @username[0..-2]
-      else
-        @password = @password[0..-2]
+        @username.chop! unless @username.empty?
+      elsif @active_field == :password
+        @password.chop! unless @password.empty?
       end
     end
   end
@@ -104,9 +130,10 @@ class LoginScreen < BaseScreen
   # Chamado pelo GameWindow para repassar caracteres digitados
   def receive_char(char)
     return unless char =~ /\A[[:print:]]\z/
+
     if @active_field == :username
       @username << char if @username.length < 24
-    else
+    elsif @active_field == :password
       @password << char if @password.length < 32
     end
   end
@@ -129,7 +156,9 @@ class LoginScreen < BaseScreen
     @window.draw_rect(x,             y,             t,       INPUT_H, border_color)
     @window.draw_rect(x + INPUT_W-t, y,             t,       INPUT_H, border_color)
 
-    cursor = active ? '|' : ''
+    show_cursor = active && (Gosu.milliseconds / 500).even?
+    cursor = show_cursor ? '|' : ''
+
     display = content + cursor
     ty = y + (INPUT_H - @btn_font.height) / 2
     @btn_font.draw_text(display, x + 12, ty, 2, 1.0, 1.0, Theme::COLOR_TEXT)
@@ -141,18 +170,31 @@ class LoginScreen < BaseScreen
     cx = @window.dw / 2
     mx, my = @window.mx, @window.my
 
+    base_y = 120
+    user_y = base_y + 40
+    user_input_y = user_y + 20
+
+    pass_y = user_y + 84
+    pass_input_y = pass_y + 20
+
+    btn_y = 335
+    btn_h = 50
+
     # Campos de input
     ux = cx - INPUT_W / 2
-    @active_field = :username if mx.between?(ux, ux + INPUT_W) && my.between?(180, 180 + INPUT_H)
-    @active_field = :password if mx.between?(ux, ux + INPUT_W) && my.between?(264, 264 + INPUT_H)
+    @active_field = :username if mx.between?(ux, ux + INPUT_W) && my.between?(user_input_y, user_input_y + INPUT_H)
+    @active_field = :password if mx.between?(ux, ux + INPUT_W) && my.between?(pass_input_y, pass_input_y + INPUT_H)
 
     # Botão principal
-    if mx.between?(cx - 140, cx + 140) && my.between?(335, 385)
+    if mx.between?(cx - 140, cx + 140) && my.between?(btn_y, btn_y + btn_h)
       submit
     end
 
     # Link de alternância
-    if my.between?(395, 415)
+    toggle_text = @mode == MODE_LOGIN ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Entrar'
+    text_w = @label_font.text_width(toggle_text)
+
+    if mx.between?(cx - text_w / 2, cx + text_w / 2) && my.between?(395, 415)
       toggle_mode
     end
   end
