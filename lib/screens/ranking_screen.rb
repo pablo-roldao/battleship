@@ -22,6 +22,11 @@ class RankingScreen < BaseScreen
     draw_rows
   end
 
+  def button_down(id)
+    return unless id == Gosu::MS_LEFT
+    @window.request_screen(:menu) if back_btn_hit?(@window.mx, @window.my)
+  end
+
   private
 
   def draw_column_headers
@@ -76,10 +81,5 @@ class RankingScreen < BaseScreen
 
   COLOR_SUCCESS = Gosu::Color.new(0xff_22c55e)
   COLOR_ERROR   = Gosu::Color.new(0xff_ef4444)
-
-  def button_down(id)
-    return unless id == Gosu::MS_LEFT
-    @window.request_screen(:menu) if back_btn_hit?(@window.mx, @window.my)
-  end
 end
 

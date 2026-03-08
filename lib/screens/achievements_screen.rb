@@ -62,21 +62,56 @@ class AchievementsScreen < BaseScreen
     icon_text = unlocked ? data[:icon] : '?'
     @medal_font.draw_text(icon_text, x + 18, y + (CARD_H - @medal_font.height) / 2, 3, 1.0, 1.0, name_color)
 
-    # Nome
     name_x = x + 65
-    @name_font.draw_text(data[:name], name_x, y + 12, 3, 1.0, 1.0, name_color)
 
-    # Descrição
-    desc_text = unlocked ? data[:description] : '??? Bloqueada ???'
-    @desc_font.draw_text(desc_text, name_x, y + 42, 3, 1.0, 1.0, text_color)
+    # Descrição com quebra de linha automática
+    desc_text  = unlocked ? data[:description] : '??? Bloqueada ???'
+    badge_w    = unlocked ? @desc_font.text_width('OBTIDA') + 20 : 0
+    max_desc_w = CARD_W - 65 - 10 - badge_w
+    desc_lines = wrap_text(desc_text, max_desc_w, @desc_font)
 
-    # Selo OBTIDA
+    # Ajusta posições verticais conforme número de linhas
+    if desc_lines.size > 1
+      name_y  = y + 6
+      desc_y0 = y + 32
+    else
+      name_y  = y + 12
+      desc_y0 = y + 42
+    end
+
+    # Nome
+    @name_font.draw_text(data[:name], name_x, name_y, 3, 1.0, 1.0, name_color)
+
+    # Descrição (no máximo 2 linhas)
+    desc_lines.first(2).each_with_index do |line, li|
+      @desc_font.draw_text(line, name_x, desc_y0 + li * 20, 3, 1.0, 1.0, text_color)
+    end
+
+    # Selo OBTIDA (centralizado verticalmente no card)
     if unlocked
       badge_text = 'OBTIDA'
       badge_x = x + CARD_W - @desc_font.text_width(badge_text) - 15
       badge_y = y + (CARD_H - @desc_font.height) / 2
       @desc_font.draw_text(badge_text, badge_x, badge_y, 3, 1.0, 1.0, COLOR_UNLOCKED)
     end
+  end
+
+  # Quebra +text+ em linhas que caibam em +max_width+ pixels de acordo com +font+.
+  def wrap_text(text, max_width, font)
+    words = text.split(' ')
+    lines = []
+    current = ''
+    words.each do |word|
+      candidate = current.empty? ? word : "#{current} #{word}"
+      if font.text_width(candidate) <= max_width
+        current = candidate
+      else
+        lines << current unless current.empty?
+        current = word
+      end
+    end
+    lines << current unless current.empty?
+    lines
   end
 end
 
