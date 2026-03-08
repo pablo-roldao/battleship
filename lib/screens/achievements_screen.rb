@@ -1,17 +1,15 @@
 require_relative 'base_screen'
 require_relative '../engine/achievement_manager'
 
-# Tela de exibição das conquistas (medalhas) do jogador.
-# Mostra todas as conquistas disponíveis, indicando quais já foram desbloqueadas.
 class AchievementsScreen < BaseScreen
-  COLOR_UNLOCKED = Gosu::Color.new(0xff_d97706)   # dourado
-  COLOR_LOCKED   = Gosu::Color.new(0xff_334155)   # cinza escuro
+  COLOR_UNLOCKED    = Gosu::Color.new(0xff_d97706)
+  COLOR_LOCKED      = Gosu::Color.new(0xff_334155)
   COLOR_LOCKED_TEXT = Gosu::Color.new(0xff_64748b)
 
-  CARD_W = 680
-  CARD_H = 80
-  CARD_X = 60
-  START_Y = 140
+  CARD_W       = 680
+  CARD_H       = 80
+  CARD_X       = 60
+  START_Y      = 140
   CARD_SPACING = 95
 
   def initialize(window, achievement_manager)
@@ -20,26 +18,52 @@ class AchievementsScreen < BaseScreen
     @medal_font = Gosu::Font.new(30)
     @name_font  = Gosu::Font.new(22)
     @desc_font  = Gosu::Font.new(16)
+
+    @scroll_y   = 0
+    @max_scroll = 0
+  end
+
+  def update
+    total_list_height = AchievementManager::ACHIEVEMENTS.size * CARD_SPACING
+
+    visible_area = 360
+
+    @max_scroll = [total_list_height - visible_area, 0].max
+
+    @scroll_y = @scroll_y.clamp(-@max_scroll, 0)
   end
 
   def draw
     draw_header("CONQUISTAS")
     draw_back_btn
 
-    AchievementManager::ACHIEVEMENTS.each_with_index do |(key, data), i|
-      draw_achievement_card(key, data, CARD_X, START_Y + i * CARD_SPACING)
+    @window.clip_to(0, 120, @window.dw, 380) do
+      # translate move o eixo Y de desenho baseado no nosso scroll
+      Gosu.translate(0, @scroll_y) do
+        AchievementManager::ACHIEVEMENTS.each_with_index do |(key, data), i|
+          draw_achievement_card(key, data, CARD_X, START_Y + i * CARD_SPACING)
+        end
+      end
     end
 
-    # Contador de desbloqueadas
     total    = AchievementManager::ACHIEVEMENTS.size
     unlocked = @am.unlocked_achievements.size
     summary  = "#{unlocked} / #{total} conquistas desbloqueadas"
+
     draw_centered_text(summary, 530, Theme::COLOR_ACCENT, @info_font)
   end
 
   def button_down(id)
-    return unless id == Gosu::MS_LEFT
-    @window.request_screen(:menu) if back_btn_hit?(@window.mx, @window.my)
+    case id
+    when Gosu::MS_LEFT
+      @window.request_screen(:menu) if back_btn_hit?(@window.mx, @window.my)
+    when Gosu::KB_ESCAPE
+      @window.request_screen(:menu)
+    when Gosu::MS_WHEEL_UP, Gosu::KB_UP
+      @scroll_y += 40
+    when Gosu::MS_WHEEL_DOWN, Gosu::KB_DOWN
+      @scroll_y -= 40
+    end
   end
 
   private
@@ -52,25 +76,20 @@ class AchievementsScreen < BaseScreen
     text_color   = unlocked ? Theme::COLOR_TEXT : COLOR_LOCKED_TEXT
     name_color   = unlocked ? COLOR_UNLOCKED   : COLOR_LOCKED_TEXT
 
-    # Fundo do card
     @window.draw_rect(x, y, CARD_W, CARD_H, bg_color)
 
-    # Borda lateral (indicador de status)
     @window.draw_rect(x, y, 5, CARD_H, border_color)
 
-    # Ícone / cadeado
     icon_text = unlocked ? data[:icon] : '?'
     @medal_font.draw_text(icon_text, x + 18, y + (CARD_H - @medal_font.height) / 2, 3, 1.0, 1.0, name_color)
 
     name_x = x + 65
 
-    # Descrição com quebra de linha automática
     desc_text  = unlocked ? data[:description] : '??? Bloqueada ???'
     badge_w    = unlocked ? @desc_font.text_width('OBTIDA') + 20 : 0
     max_desc_w = CARD_W - 65 - 10 - badge_w
     desc_lines = wrap_text(desc_text, max_desc_w, @desc_font)
 
-    # Ajusta posições verticais conforme número de linhas
     if desc_lines.size > 1
       name_y  = y + 6
       desc_y0 = y + 32
@@ -79,15 +98,12 @@ class AchievementsScreen < BaseScreen
       desc_y0 = y + 42
     end
 
-    # Nome
     @name_font.draw_text(data[:name], name_x, name_y, 3, 1.0, 1.0, name_color)
 
-    # Descrição (no máximo 2 linhas)
     desc_lines.first(2).each_with_index do |line, li|
       @desc_font.draw_text(line, name_x, desc_y0 + li * 20, 3, 1.0, 1.0, text_color)
     end
 
-    # Selo OBTIDA (centralizado verticalmente no card)
     if unlocked
       badge_text = 'OBTIDA'
       badge_x = x + CARD_W - @desc_font.text_width(badge_text) - 15
@@ -96,7 +112,6 @@ class AchievementsScreen < BaseScreen
     end
   end
 
-  # Quebra +text+ em linhas que caibam em +max_width+ pixels de acordo com +font+.
   def wrap_text(text, max_width, font)
     words = text.split(' ')
     lines = []
@@ -114,6 +129,3 @@ class AchievementsScreen < BaseScreen
     lines
   end
 end
-
-
-
