@@ -28,93 +28,137 @@ class CampaignScreen < BaseScreen
     4 => :impossible
   }.freeze
 
+  BTN_W = 500
+  BTN_H = 50
+  START_Y = 180
+  GAP = 70
+  TOTAL_MISSIONS = 4
+
   # @param window     [GameWindow]
   # @param stage      [Integer]  estágio atual desbloqueado (1‑4, onde 4 = campanha concluída)
   def initialize(window, stage: 1)
     super(window)
-    @stage        = [stage, 1].max   # sem clamp superior: stage=4 indica campanha concluída
-    @hover_stage  = nil
+    @stage = [stage, 1].max # sem clamp superior: stage=4 indica campanha concluída
+
+    # Inicia com o cursor focado na missão mais alta já desbloqueada
+    max_unlocked_index = [@stage - 1, 3].min
+    @selected_index = max_unlocked_index
+
     @mission_font = Gosu::Font.new(16)
   end
 
-  # Renderização
+  # Atualiza a lógica da tela frame a frame (Sincroniza hover do mouse)
+  def update
+    mx, my = @window.mx, @window.my
+    start_x = (@window.dw - BTN_W) / 2
 
+    if mx.between?(start_x, start_x + BTN_W)
+      index = ((my - START_Y) / GAP).to_i
+      relative_y = (my - START_Y) % GAP
+
+      # Só permite focar com o mouse se a missão estiver desbloqueada
+      if index.between?(0, TOTAL_MISSIONS - 1) && relative_y <= BTN_H
+        @selected_index = index if (index + 1) <= @stage
+      end
+    end
+  end
+
+  # Renderização
   def draw
     draw_header("MAPA DE CAMPANHA")
     draw_back_btn
     draw_centered_text("Selecione sua missão:", 140, Theme::COLOR_TEXT, @btn_font)
 
-    btn_w  = 500
-    btn_h  = 50
-    start_x = (@window.dw - btn_w) / 2
+    start_x = (@window.dw - BTN_W) / 2
 
     STAGE_LABELS.each_with_index do |(stage_num, label), idx|
-      y        = 180 + idx * 70
+      y        = START_Y + idx * GAP
       unlocked = stage_num <= @stage
       boss     = stage_num == 4
-      draw_mission_btn(label, start_x, y, btn_w, btn_h, unlocked, boss: boss)
+
+      draw_mission_btn(label, start_x, y, unlocked, idx, boss: boss)
     end
 
     draw_stage_info
   end
 
   # Input
-
   def button_down(id)
-    return unless id == Gosu::MS_LEFT
-
-    mx = @window.mx
-    my = @window.my
-
-    if back_btn_hit?(mx, my)
+    case id
+    when Gosu::MS_LEFT
+      handle_clicks
+    when Gosu::KB_UP
+      move_selection(-1)
+    when Gosu::KB_DOWN
+      move_selection(1)
+    when Gosu::KB_RETURN, Gosu::KB_ENTER
+      launch_mission(@selected_index + 1)
+    when Gosu::KB_ESCAPE
       @window.request_screen(:menu)
-      return
-    end
-
-    btn_w  = 500
-    btn_h  = 50
-    start_x = (@window.dw - btn_w) / 2
-
-    STAGE_LABELS.each_with_index do |(stage_num, _label), idx|
-      y        = 180 + idx * 70
-      unlocked = stage_num <= @stage
-
-      if unlocked && mx.between?(start_x, start_x + btn_w) && my.between?(y, y + btn_h)
-        launch_mission(stage_num)
-        return
-      end
     end
   end
 
   private
 
-  # Desenha um botão de missão, bloqueado ou não.
-  # boss: true aplica estilo carmesim para a missão do Davy Jones.
-  def draw_mission_btn(label, x, y, w, h, unlocked, boss: false)
-    mx = @window.mx
-    my = @window.my
-    is_hover = unlocked && mx.between?(x, x + w) && my.between?(y, y + h)
+  # Move a seleção do teclado apenas entre as missões já desbloqueadas
+  def move_selection(direction)
+    max_unlocked_index = [@stage - 1, 3].min
+    @selected_index = (@selected_index + direction) % (max_unlocked_index + 1)
+  end
 
-    if boss
-      bg_color     = unlocked ? (is_hover ? Gosu::Color.new(0xff_7f1d1d) : Gosu::Color.new(0xff_450a0a)) : Gosu::Color.new(0xff_1c0505)
-      border_color = is_hover ? Gosu::Color.new(0xff_ef4444) : Gosu::Color.new(0xff_7f1d1d)
-      text_color   = unlocked ? Gosu::Color.new(0xff_fca5a5) : Gosu::Color.new(0xff_4b1c1c)
-    else
-      bg_color     = unlocked ? (is_hover ? Theme::COLOR_HOVER : Theme::COLOR_BTN) : Gosu::Color.new(0xff_2d3748)
-      border_color = is_hover ? Theme::COLOR_ACCENT : Theme::COLOR_BG
-      text_color   = unlocked ? Theme::COLOR_TEXT : Gosu::Color.new(0xff_64748b)
+  # Processa os cliques do mouse nos botões da tela
+  def handle_clicks
+    if back_btn_hit?(@window.mx, @window.my)
+      @window.request_screen(:menu)
+      return
     end
 
-    @window.draw_rect(x, y, w, h, bg_color)
+    mx, my = @window.mx, @window.my
+    start_x = (@window.dw - BTN_W) / 2
+    y = START_Y + @selected_index * GAP
+
+    # Lança a missão se o clique foi em cima do botão atualmente focado
+    if mx.between?(start_x, start_x + BTN_W) && my.between?(y, y + BTN_H)
+      launch_mission(@selected_index + 1)
+    end
+  end
+
+  # Desenha um botão de missão, bloqueado ou não.
+  # boss: true aplica estilo carmesim para a missão do Davy Jones.
+  def draw_mission_btn(label, x, y, unlocked, index, boss: false)
+    is_focused = (index == @selected_index) && unlocked
+
+    if boss
+      bg_color     = unlocked ? (is_focused ? Gosu::Color.new(0xff_7f1d1d) : Gosu::Color.new(0xff_450a0a)) : Gosu::Color.new(0xff_1c0505)
+      border_color = is_focused ? Gosu::Color.new(0xff_ef4444) : Gosu::Color.new(0xff_7f1d1d)
+      text_color   = unlocked ? Gosu::Color.new(0xff_fca5a5) : Gosu::Color.new(0xff_4b1c1c)
+      focus_color  = Gosu::Color.new(0xff_ef4444)
+    else
+      bg_color     = unlocked ? (is_focused ? Theme::COLOR_HOVER : Theme::COLOR_BTN) : Gosu::Color.new(0xff_2d3748)
+      border_color = is_focused ? Theme::COLOR_ACCENT : Theme::COLOR_BG
+      text_color   = unlocked ? Theme::COLOR_TEXT : Gosu::Color.new(0xff_64748b)
+      focus_color  = Gosu::Color.new(0xff_d97706)
+    end
+
+    @window.draw_rect(x, y, BTN_W, BTN_H, bg_color)
     t = 2
-    @window.draw_rect(x,         y,         w, t, border_color)
-    @window.draw_rect(x,         y + h - t, w, t, border_color)
-    @window.draw_rect(x,         y,         t, h, border_color)
-    @window.draw_rect(x + w - t, y,         t, h, border_color)
+    @window.draw_rect(x,             y,             BTN_W, t, border_color)
+    @window.draw_rect(x,             y + BTN_H - t, BTN_W, t, border_color)
+    @window.draw_rect(x,             y,             t, BTN_H, border_color)
+    @window.draw_rect(x + BTN_W - t, y,             t, BTN_H, border_color)
+
+    # Contorno de foco externo
+    if is_focused
+      ft = 3
+      @window.draw_rect(x - ft, y - ft, BTN_W + ft * 2, ft, focus_color)
+      @window.draw_rect(x - ft, y + BTN_H, BTN_W + ft * 2, ft, focus_color)
+      @window.draw_rect(x - ft, y - ft, ft, BTN_H + ft * 2, focus_color)
+      @window.draw_rect(x + BTN_W, y - ft, ft, BTN_H + ft * 2, focus_color)
+    end
 
     display = unlocked ? label : "#{label}  [BLOQUEADA]"
-    tx = x + (w - @mission_font.text_width(display)) / 2
-    ty = y + (h - @mission_font.height) / 2
+    tx = x + (BTN_W - @mission_font.text_width(display)) / 2
+    ty = y + (BTN_H - @mission_font.height) / 2
     @mission_font.draw_text(display, tx, ty, 2, 1.0, 1.0, text_color)
   end
 
