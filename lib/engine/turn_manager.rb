@@ -124,6 +124,15 @@ class TurnManager
     @current_turn = :ai
   end
 
+  # Encerra o turno da IA sem que ela atire (usado pelo Davy Jones nos turnos livres).
+  # Devolve o controle ao jogador.
+  #
+  # @return [void]
+  def end_ai_turn_without_shot
+    return if game_over?
+    @current_turn = :player
+  end
+
   # @return [Boolean] true se alguma das frotas foi totalmente destruída
   def game_over?
     player_defeated? || ai_defeated?
