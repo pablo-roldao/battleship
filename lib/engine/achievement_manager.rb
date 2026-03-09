@@ -179,7 +179,10 @@ class AchievementManager
 
   def load_achievements
     @newly_unlocked = []
-    return unless File.exist?(SAVE_FILE)
+    unless File.exist?(SAVE_FILE)
+      File.write(SAVE_FILE, '{}')
+      return
+    end
     raw = File.read(SAVE_FILE)
     return if raw.strip.empty?
     data = JSON.parse(raw)
