@@ -5,8 +5,8 @@ require_relative '../models/ships/ship'
 # A classe valida:
 # - limtes do tabuleiro
 # - tiros repetidos
-# - acertos, danos e dstruição de navios
-# Retorna símbolos represenrando o resultado do disparo.
+# - acertos, danos e destruição de navios
+# Retorna símbolos representando o resultado do disparo.
 # # @author José Gustavo
 class ShootingMechanics
   # Possíveis resultados de um disparo
