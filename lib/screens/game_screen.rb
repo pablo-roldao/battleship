@@ -302,8 +302,8 @@ class GameScreen < BaseScreen
       acao = result == :DESTROYED ? "DESTRUIU" : "acertou"
 
       if impossible_free_phase
-        log_action("Você #{acao} #{ship&.class&.name}! Vez de Davy Jones.")
-        @turn_manager.end_player_turn_without_shot
+        @ai.consume_free_turn
+        log_action("Você #{acao} #{ship&.class&.name}! Atire de novo.")
       else
         log_action("Você #{acao} #{ship&.class&.name}! Atire de novo.")
       end
