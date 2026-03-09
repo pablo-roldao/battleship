@@ -5,7 +5,6 @@ require_relative '../models/ships/ship'
 #
 # Regras:
 # - Apenas navios INTACT (sem nenhum acerto) podem ser movidos.
-# - Mover um navio CONSOME o turno inteiro — quem move NÃO atira.
 # - Cada lado pode mover NO MÁXIMO um navio por turno.
 #
 # @author José Gustavo
@@ -26,7 +25,7 @@ class MovementMechanics
     @moved_this_turn = false
   end
 
-  # Indica se o movimento já foi usado neste turno (logo, o disparo está bloqueado).
+  # Indica se o movimento já foi usado neste turno.
   # @return [Boolean]
   def already_moved?
     @moved_this_turn
@@ -41,7 +40,7 @@ class MovementMechanics
     return :invalid_direction unless valid_directions.include?(direction)
     return :already_moved     if @moved_this_turn
     return :already_destroyed if ship.status == Ship::DESTROYED
-    return :damaged_ship      if ship.status == Ship::DAMAGED   # acertado mas não destruído
+    return :damaged_ship      if ship.status == Ship::DAMAGED
 
     success = @board.move_ship(ship, direction)
 
